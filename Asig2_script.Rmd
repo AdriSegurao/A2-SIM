@@ -1,0 +1,215 @@
+---
+title: "Assigment2: HR Analytics- Job"
+date: "2025-12-15"
+fontsize: 10pt
+output:
+  pdf_document:
+    latex_engine: xelatex
+    fig_crop: false
+    toc: true
+    toc_depth: 3
+    number_sections: true
+  word_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+editor_options:
+  chunk_output_type: console
+---
+
+
+
+# DATA PREPARATION
+
+## Load data and libraries
+
+This section loads all necessary libraries and imports the dataset to prepare for data analysis and modeling.
+
+```{r setup, include=FALSE}
+
+# --- Data manipulation and import ---
+library(readr)        # Read CSV files
+library(dplyr)        # Data manipulation (mutate, filter, select, etc.)
+library(forcats)      # Factor variable handling
+library(tidyr)        # Reshaping and tidying data
+library(stringr)      # String manipulation
+
+# --- Visualization ---
+library(ggplot2)      # Data visualization
+library(corrplot)     # Correlation plots
+library(scales)       # Formatting axis labels, percentages, etc.
+
+# --- Outlier and multivariate analysis ---
+library(chemometrics) # Moutlier detection
+library(FactoMineR)   # Multivariate description (catdes, PCA)
+
+# --- Statistical modeling and diagnostics ---
+library(car)          # Regression diagnostics (VIF, crPlots, etc.)
+library(MASS)         # Stepwise regression (stepAIC)
+library(lmtest)       # Model tests (bptest, dwtest)
+library(sandwich)     # Robust standard errors (vcovHC)
+
+# --- Missing data handling ---
+library(mice)         # Multiple imputation 
+set.seed(12345)
+
+# --- Load dataset ---
+df <- read_csv("aug_train.csv")
+
+# Quick overview of the dataset
+summary(df)
+str(df)
+```
+
+
+## Numeric variable analysis function
+```{r}
+analyze_var <- function(data, varname) {
+  xd <- data[[varname]]
+  
+  varsum <- summary(xd)
+  print(varsum)
+  
+  hist(xd, breaks = 30, freq = F, main = paste("Histogram of", varname), xlab = varname)
+  curve(dnorm(x, mean(xd), sd(xd)), add = T)
+  
+  ksresult <- ks.test(xd, "pnorm", mean(xd), sd(xd))
+  print(ksresult)
+  
+  cat("\nNumber of NA values:", sum(is.na(xd)), "\n")
+  
+  boxplot(xd, main = paste("Boxplot of", varname), ylab = varname)
+  
+  Q1 <- varsum[2]
+  Q3 <- varsum[5]
+  IQR <- Q3 - Q1
+  
+  lower_severe_bound <- Q1 - 3 * IQR
+  upper_severe_bound <- Q3 + 3 * IQR
+  lower_mild_bound <- Q1 - 1.5 * IQR
+  upper_mild_bound <- Q3 + 1.5 * IQR
+  
+  mild_outliers <- which((xd < lower_mild_bound) | (xd > upper_mild_bound))
+  severe_outliers <- which((xd < lower_severe_bound) | (xd > upper_severe_bound))
+  
+  num_mild_outliers <- length(mild_outliers)
+  num_severe_outliers <- length(severe_outliers)
+  
+  cat("\nTotal outliers:", num_mild_outliers, 
+      "\nSevere outliers:", num_severe_outliers, "\n")
+  
+  return(list(
+    summary = varsum,
+    NA_count = sum(is.na(xd)),
+    mild_outliers = mild_outliers,
+    severe_outliers = severe_outliers,
+    num_mild_outliers = num_mild_outliers,
+    num_severe_outliers = num_severe_outliers,
+    ksresult = ksresult,
+    bounds = list(
+      lower_mild = lower_mild_bound,
+      upper_mild = upper_mild_bound,
+      lower_severe = lower_severe_bound,
+      upper_severe = upper_severe_bound
+    )
+  ))
+}
+```
+
+
+## Univariate Descriptive Analysis
+• Original numeric variables corresponding to qualitative concepts have to be converted to factors.
+
+• Original numeric variables corresponding to real quantitative concepts are kept as numeric but additional factors should also be created as a discretization of each numeric variable.
+
+• Exploratory Data Analysis for each variables (numeric summary and graphic support).
+
+
+## Data Quality Report
+
+Per variable, count:
+• Number of missing values
+• Number of errors (including inconsistencies)
+• Number of outliers
+• Rank variables according the sum of missing values (and errors).
+
+
+Per individuals, count:
+• number of missing values
+• number of errors,
+• number of outliers
+• Identify individuals considered as multivariant outliers.
+
+
+
+Create variable adding the total number missing values, outliers and errors. Describe these variables, to which other variables exist higher associations.
+• Compute the correlation with all other variables. Rank these variables according the correlation
+• Compute for every group of individuals (group of age, size of town, singles, married, …) the mean of missing/outliers/errors values. Rank the groups according the computed mean.
+
+
+
+## Imputation
+```{r}
+
+
+
+```
+
+
+# PROFILING AND FEATURE SELECTION
+```{r}
+
+
+
+```
+
+# MODEL WITH NUMERIC VARIABLES
+```{r}
+
+
+
+```
+
+# RESIDUAL ANALYSIS 1
+```{r}
+
+
+
+```
+
+# ADDING FACTORS
+```{r}
+
+
+
+```
+
+# RESIDUAL ANALYSIS 2
+```{r}
+
+
+
+```
+
+# ADDING INTERACTIONS 
+```{r}
+
+
+
+```
+
+# FINAL RESIDUAL ANALYSIS 
+```{r}
+
+
+
+```
+
+
+# GOODNESS OF FIT AND MODEL INTERPRETATION
+```{r}
+
+
+
+```
+

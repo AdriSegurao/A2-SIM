@@ -326,6 +326,7 @@ Errores entre TRAINING_HOURS y RELEVANT_EXPERIENCE
   Error 12 — No relevant experience con experience_num > 10 (opcional)
 
 ```{r}
+# Data quality per variable
 vars <- names(df)
 
 DQ_variable <- data.frame(
@@ -334,10 +335,17 @@ DQ_variable <- data.frame(
   outliers = sapply(df, count_outliers),
   severe_outliers = sapply(df, count_outliers_severe)
 )
+summary(DQ_variable)
 
-DQ_variable
 
-summary(df)
+# Data quality per individual
+DQ_individual <- data.frame(
+  missing         = apply(df, 1, count_missing),
+  errors          = apply(df, 1, count_errors),
+  outliers        = apply(df, 1, count_outliers),
+  severe_outliers = apply(df, 1, count_outliers_severe)
+)
+summary(DQ_individual)
 
 ```
 

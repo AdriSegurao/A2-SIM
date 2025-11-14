@@ -54,7 +54,8 @@ library(mice)         # Multiple imputation
 set.seed(12345)
 
 # --- Load dataset ---
-df <- read_csv("aug_train.csv")
+df_orig <- read_csv("aug_train.csv")
+df <- df_orig
 
 # Quick overview of the dataset
 summary(df)
@@ -62,57 +63,43 @@ str(df)
 ```
 
 
-## Numeric variable analysis function
+## Functions
 ```{r}
-analyze_var <- function(data, varname) {
-  xd <- data[[varname]]
-  
-  varsum <- summary(xd)
-  print(varsum)
-  
-  hist(xd, breaks = 30, freq = F, main = paste("Histogram of", varname), xlab = varname)
-  curve(dnorm(x, mean(xd), sd(xd)), add = T)
-  
-  ksresult <- ks.test(xd, "pnorm", mean(xd), sd(xd))
-  print(ksresult)
-  
-  cat("\nNumber of NA values:", sum(is.na(xd)), "\n")
-  
-  boxplot(xd, main = paste("Boxplot of", varname), ylab = varname)
-  
-  Q1 <- varsum[2]
-  Q3 <- varsum[5]
+# -------------------------------
+# Missing
+# -------------------------------
+count_missing <- function(x) {
+  sum(is.na(x))
+}
+
+# -------------------------------
+# Errors
+# -------------------------------
+count_errors <- function(x) {
+  if (!is.factor(x)) return(0)
+  sum(!is.na(x) & !(x %in% levels(x)))
+}
+
+# -------------------------------
+# Outliers
+# -------------------------------
+count_outliers <- function(x) {
+  if (!is.numeric(x)) return(0)
+  Q1 <- quantile(x, 0.25, na.rm = TRUE)
+  Q3 <- quantile(x, 0.75, na.rm = TRUE)
   IQR <- Q3 - Q1
-  
-  lower_severe_bound <- Q1 - 3 * IQR
-  upper_severe_bound <- Q3 + 3 * IQR
-  lower_mild_bound <- Q1 - 1.5 * IQR
-  upper_mild_bound <- Q3 + 1.5 * IQR
-  
-  mild_outliers <- which((xd < lower_mild_bound) | (xd > upper_mild_bound))
-  severe_outliers <- which((xd < lower_severe_bound) | (xd > upper_severe_bound))
-  
-  num_mild_outliers <- length(mild_outliers)
-  num_severe_outliers <- length(severe_outliers)
-  
-  cat("\nTotal outliers:", num_mild_outliers, 
-      "\nSevere outliers:", num_severe_outliers, "\n")
-  
-  return(list(
-    summary = varsum,
-    NA_count = sum(is.na(xd)),
-    mild_outliers = mild_outliers,
-    severe_outliers = severe_outliers,
-    num_mild_outliers = num_mild_outliers,
-    num_severe_outliers = num_severe_outliers,
-    ksresult = ksresult,
-    bounds = list(
-      lower_mild = lower_mild_bound,
-      upper_mild = upper_mild_bound,
-      lower_severe = lower_severe_bound,
-      upper_severe = upper_severe_bound
-    )
-  ))
+  sum(x < (Q1 - 1.5 * IQR) | x > (Q3 + 1.5 * IQR), na.rm = TRUE)
+}
+
+# -------------------------------
+# Severe outliers
+# -------------------------------
+count_outliers_severe <- function(x) {
+  if (!is.numeric(x)) return(0)
+  Q1 <- quantile(x, 0.25, na.rm = TRUE)
+  Q3 <- quantile(x, 0.75, na.rm = TRUE)
+  IQR <- Q3 - Q1
+  sum(x < (Q1 - 3 * IQR) | x > (Q3 + 3 * IQR), na.rm = TRUE)
 }
 ```
 
@@ -123,6 +110,172 @@ analyze_var <- function(data, varname) {
 • Original numeric variables corresponding to real quantitative concepts are kept as numeric but additional factors should also be created as a discretization of each numeric variable.
 
 • Exploratory Data Analysis for each variables (numeric summary and graphic support).
+
+
+
+### Variable 1: enrollee_id
+
+```{r}
+df$enrollee_id <- NULL
+
+df <- df[!duplicated(df), ]
+nrow(df_orig) - nrow(df)
+```
+
+
+### Variable 2: city
+
+```{r}
+df$city <- as.factor(df$city)
+summary(df$city)
+plot(df$city, main = "city")
+```
+
+
+### Variable 3: city_development_index
+
+```{r}
+summary(df$city_development_index)
+plot(as.factor(df$city_development_index), main = "city_development_index")
+
+df$f_city_dev_q <- cut(df$city_development_index,
+                       breaks = quantile(df$city_development_index, probs = seq(0,1,0.25)),
+                       include.lowest = TRUE,
+                       labels = c("Low", "Mid-low", "Mid-high", "High"))
+
+summary(df$f_city_dev_q)
+plot(df$f_city_dev_q, main = "f_city_dev_q")
+```
+
+
+### Variable 4: gender
+
+```{r}
+df$gender <- as.factor(df$gender)
+summary(df$gender)
+plot(df$gender, main = "gender")
+```
+
+
+### Variable 5: relevent_experience
+
+```{r}
+df$relevent_experience <- as.factor(df$relevent_experience)
+summary(df$relevent_experience)
+plot(df$relevent_experience, main = "relevent_experience")
+prop.table(table(df$relevent_experience))
+```
+
+
+### Variable 6: enrolled_university
+
+```{r}
+df$enrolled_university <- as.factor(df$enrolled_university)
+summary(df$enrolled_university)
+plot(df$enrolled_university, main = "enrolled_university")
+```
+
+
+### Variable 7: education_level
+
+```{r}
+df$education_level <- as.factor(df$education_level)
+summary(df$education_level)
+plot(df$education_level, main = "education_level")
+```
+
+
+### Variable 8: major_discipline
+
+```{r}
+df$major_discipline <- as.factor(df$major_discipline)
+summary(df$major_discipline)
+plot(df$major_discipline, main = "major_discipline")
+```
+
+
+### Variable 9: experience
+
+```{r}
+df$experience_num <- df$experience
+
+df$experience_num[df$experience_num == "<1"] <- "0"
+df$experience_num[df$experience_num == ">20"] <- "21"
+
+df$experience_num <- as.numeric(df$experience_num)
+
+summary(df$experience_num)
+plot(as.factor(df$experience_num), main = "experience_num")
+
+df$f_experience_q <- cut(df$experience_num,
+                         breaks = quantile(df$experience_num, probs = seq(0,1,0.25), na.rm = TRUE),
+                         include.lowest = TRUE,
+                         labels = c("Low", "Mid-low", "Mid-high", "High"))
+summary(df$f_experience_q)
+plot(df$f_experience_q, main = "f_experience_q")
+```
+
+
+### Variable 10: company_size
+
+```{r}
+ordered_sizes <- c("<10","10/49","50-99", "100-500", "500-999", "1000-4999", "5000-9999", "10000+")
+
+df$company_size <- factor(df$company_size,
+                          levels = ordered_sizes,
+                          ordered = TRUE)
+summary(df$company_size)
+plot(df$company_size, main = "company_size")
+```
+
+
+### Variable 11: company_type
+
+```{r}
+df$company_type <- as.factor(df$company_type)
+summary(df$company_type)
+plot(df$company_type, main = "company_type")
+```
+
+
+### Variable 12: last_new_job
+
+```{r}
+ordered_lastjob <- c("never","1","2","3","4",">4")
+
+df$last_new_job <- factor(df$last_new_job,
+                          levels = ordered_lastjob,
+                          ordered = TRUE)
+
+summary(df$last_new_job)
+plot(df$last_new_job, main = "last_new_job")
+```
+
+
+### Variable 13: training_hours
+
+```{r}
+summary(df$training_hours)
+plot(as.factor(df$training_hours), main = "training_hours")
+
+df$f_training_hours_q <- cut(df$training_hours,
+                             breaks = quantile(df$training_hours, probs = seq(0,1,0.25)),
+                             include.lowest = TRUE,
+                             labels = c("Low", "Mid-low", "Mid-high", "High"))
+
+summary(df$f_training_hours_q)
+plot(df$f_training_hours_q, main = "f_training_hours_q")
+```
+
+
+### Variable 14: target
+
+```{r}
+df$target <- as.factor(df$target)
+summary(df$target)
+plot(df$target, main = "target")
+prop.table(table(df$target))
+```
 
 
 ## Data Quality Report
@@ -145,6 +298,67 @@ Per individuals, count:
 Create variable adding the total number missing values, outliers and errors. Describe these variables, to which other variables exist higher associations.
 • Compute the correlation with all other variables. Rank these variables according the correlation
 • Compute for every group of individuals (group of age, size of town, singles, married, …) the mean of missing/outliers/errors values. Rank the groups according the computed mean.
+
+
+TIPOS DE ERRORES POSIBLES (INCONSISTENCIAS):
+
+Errores entre EXPERIENCE y LAST_NEW_JOB:
+
+  Error 1 — experience_num = 0 pero last_new_job != "never"
+  Error 2 — experience_num > 0 pero last_new_job = "never"
+  Error 3 — last_new_job > experience_num
+ 
+Errores entre EXPERIENCE y COMPANY_SIZE / COMPANY_TYPE
+
+  Error 4 — experience_num = 0 pero company_size no es NA
+  Error 5 — experience_num = 0 pero company_type no es NA
+  Error 6 — company_size y company_type inconsistentes (NA en company_size y no en company_type, y viceversa)
+  
+Errores entre EDUCATION_LEVEL, ENROLLED_UNIVERSITY y MAJOR_DISCIPLINE
+
+  Error 7 — education_level = "Primary School" y major_discipline != NA
+  Error 8 — education_level = "High School" y major_discipline != NA
+  Error 9 — major_discipline != NA pero education_level es bajo
+  Error 10 — enrolled_university != "no_enrollment" y education_level =  "Primary School"
+  
+Errores entre TRAINING_HOURS y RELEVANT_EXPERIENCE
+  Error 11 — Has relevant experience con experience_num = 0
+  Error 12 — No relevant experience con experience_num > 10 (opcional)
+
+```{r}
+vars <- names(df)
+
+DQ_variable <- data.frame(
+  missing = sapply(df, count_missing),
+  errors = sapply(df, count_errors),
+  outliers = sapply(df, count_outliers),
+  severe_outliers = sapply(df, count_outliers_severe)
+)
+
+DQ_variable
+
+summary(df)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

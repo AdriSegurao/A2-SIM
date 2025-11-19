@@ -219,6 +219,34 @@ plot(df$f_experience_q, main = "f_experience_q")
 ### Variable 10: company_size
 
 ```{r}
+# Create a numeric variable company_size_num
+df$company_size_num <- df$company_size
+
+df$company_size_num[df$company_size_num == "<10"] <- "5"
+df$company_size_num[df$company_size_num == "10/49"] <- "30"
+df$company_size_num[df$company_size_num == "50-99"] <- "75"
+df$company_size_num[df$company_size_num == "100-500"] <- "300"
+df$company_size_num[df$company_size_num == "500-999"] <- "750"
+df$company_size_num[df$company_size_num == "1000-4999"] <- "3000"
+df$company_size_num[df$company_size_num == "5000-9999"] <- "7500"
+df$company_size_num[df$company_size_num == "10000+"] <- "11000"
+
+df$company_size_num <- as.numeric(df$company_size_num)
+
+summary(df$company_size_num)
+plot(as.factor(df$company_size_num), main="company_size_num")
+
+
+# Create a factor using this numeric variable
+df$f_company_size_q <- cut(df$company_size_num,
+                         breaks = quantile(df$company_size_num, probs = seq(0,1,0.25), na.rm = TRUE),
+                         include.lowest = TRUE,
+                         labels = c("Low", "Mid-low", "Mid-high", "High"))
+summary(df$f_company_size_q)
+plot(df$f_company_size_q, main = "f_company_size_q")
+
+
+# Make company_size an ordered factor
 ordered_sizes <- c("<10","10/49","50-99", "100-500", "500-999", "1000-4999", "5000-9999", "10000+")
 
 df$company_size <- factor(df$company_size,
@@ -241,6 +269,19 @@ plot(df$company_type, main = "company_type")
 ### Variable 12: last_new_job
 
 ```{r}
+# Create a numeric variable last_new_job_num
+df$last_new_job_num <- df$last_new_job
+
+df$last_new_job_num[df$last_new_job_num == "never"] <- "0"
+df$last_new_job_num[df$last_new_job_num == ">4"] <- "5"
+
+df$last_new_job_num <- as.numeric(df$last_new_job_num)
+
+summary(df$last_new_job_num)
+plot(as.factor(df$last_new_job_num), main="last_new_job_num")
+
+
+# Create ordered factor
 ordered_lastjob <- c("never","1","2","3","4",">4")
 
 df$last_new_job <- factor(df$last_new_job,

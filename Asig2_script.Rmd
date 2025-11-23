@@ -73,12 +73,218 @@ count_missing <- function(x) {
 }
 
 # -------------------------------
-# Errors
+# Errors (entre variables + errores de factor)
 # -------------------------------
-count_errors <- function(x) {
-  if (!is.factor(x)) return(0)
-  sum(!is.na(x) & !(x %in% levels(x)))
+count_errors <- function(df) {
+  vars <- names(df)
+  err  <- setNames(integer(length(vars)), vars)
+
+  # --- Helper para sumar errores a las variables implicadas ---
+  add_err <- function(vars_involved, idx_rows) {
+    if (length(idx_rows) == 0) return(invisible(NULL))
+    for (v in vars_involved) {
+      if (v %in% vars) {
+        err[v] <<- err[v] + length(idx_rows)
+      }
+    }
+  }
+
+  # --- Errores "simples" de factor (valores fuera de niveles) ---
+  for (v in vars) {
+    x <- df[[v]]
+    if (is.factor(x)) {
+      err[v] <- err[v] + sum(!is.na(x) & !(x %in% levels(x)))
+    }
+  }
+
+  # Para no petar si faltan columnas, vamos comprobando
+  with(df, {
+
+    ## ---------------------------
+    ## EXPERIENCE vs LAST_NEW_JOB
+    ## ---------------------------
+    if (all(c("experience_num", "last_new_job") %in% vars)) {
+
+      # Error 1 — experience_num = 0 pero last_new_job != "never"
+      idx <- which(!is.na(experience_num) & experience_num == 0 &
+                   !is.na(last_new_job)   & last_new_job != "never")
+      add_err(c("experience_num", "last_new_job"), idx)
+
+      # Error 2 — experience_num > 0 pero last_new_job = "never"
+      idx <- which(!is.na(experience_num) & experience_num > 0 &
+                   !is.na(last_new_job)   & last_new_job == "never")
+      add_err(c("experience_num", "last_new_job"), idx)
+
+      # Error 3 — last_new_job > experience_num
+      # (asumo last_new_job numérico o convertible)
+      if (is.numeric(last_new_job)) {
+        idx <- which(!is.na(experience_num) & !is.na(last_new_job) &
+                     last_new_job > experience_num)
+        add_err(c("experience_num", "last_new_job"), idx)
+      }
+    }
+
+    ## -------------------------------------------------
+    ## EXPERIENCE vs COMPANY_SIZE / COMPANY_TYPE
+    ## -------------------------------------------------
+    if ("experience_num" %in% vars && "company_size" %in% vars) {
+      # Error 4 — experience_num = 0 pero company_size no es NA
+      idx <- which(!is.na(experience_num) & experience_num == 0 &
+                   !is.na(company_size))
+      add_err(c("experience_num", "company_size"), idx)
+    }
+
+    if ("experience_num" %in% vars && "company_type" %in% vars) {
+      # Error 5 — experience_num = 0 pero company_type no es NA
+      idx <- which(!is.na(experience_num) & experience_num == 0 &
+                   !is.na(company_type))
+      add_err(c("experience_num", "company_type"), idx)
+    }
+
+    if ("company_size" %in% vars && "company_type" %in% vars) {
+      # Error 6 — company_size y company_type inconsistentes
+      idx <- which( (is.na(company_size)  & !is.na(company_type)) |
+                    (!is.na(company_size) &  is.na(company_type)) )
+      add_err(c("company_size", "company_type"), idx)
+    }
+
+    ## -------------------------------------------------
+    ## EDUCATION_LEVEL, ENROLLED_UNIVERSITY, MAJOR_DISCIPLINE
+    ## -------------------------------------------------
+    if (all(c("education_level", "major_discipline") %in% vars)) {
+
+      # Error 7 — education_level = "Primary School" y major_discipline != NA
+      idx <- which(education_level == "Primary School" & !is.na(major_discipline))
+      add_err(c("education_level", "major_discipline"), idx)
+
+      # Error 8 — education_level = "High School" y major_discipline != NA
+      idx <- which(education_level == "High School" & !is.na(major_discipline))
+      add_err(c("education_level", "major_discipline"), idx)
+
+      # Error 9 — major_discipline != NA pero education_level es bajo o NA
+      idx <- which(!is.na(major_discipline) &
+                   (education_level %in% c("Primary School", "High School") |
+                    is.na(education_level)))
+      add_err(c("education_level", "major_discipline"), idx)
+    }
+
+    if (all(c("education_level", "enrolled_university") %in% vars)) {
+      # Error 10 — enrolled_university != "no_enrollment" y education_level = "Primary School"
+      idx <- which(education_level == "Primary School" &
+                   !is.na(enrolled_university) &
+                   enrolled_university != "no_enrollment")
+      add_err(c("education_level", "enrolled_university"), idx)
+    }
+
+    ## -------------------------------------------------
+    ## TRAINING/RELEVANT_EXPERIENCE vs EXPERIENCE
+    ## (solo usamos relevant_experience + experience_num)
+    ## -------------------------------------------------
+    if (all(c("relevant_experience", "experience_num") %in% vars)) {
+
+      # Error 11 — Has relevant experience con experience_num = 0
+      idx <- which(relevant_experience == "Has relevant experience" &
+                   !is.na(experience_num) & experience_num == 0)
+      add_err(c("relevant_experience", "experience_num"), idx)
+
+      # Error 12 — No relevant experience con experience_num > 10
+      idx <- which(relevant_experience == "No relevant experience" &
+                   !is.na(experience_num) & experience_num > 10)
+      add_err(c("relevant_experience", "experience_num"), idx)
+    }
+
+  })
+
+  err
 }
+
+count_errors_row <- function(row_df) {
+  # row_df es un data.frame de 1 fila
+  x <- row_df[1, , drop = FALSE]
+  n_err <- 0
+  
+  # Para que NA no rompa los if
+  isTrue <- function(cond) isTRUE(cond)
+  
+  ## ----------------------------
+  ## EXPERIENCE vs LAST_NEW_JOB
+  ## ----------------------------
+  if (isTrue(!is.na(x$experience_num) & x$experience_num == 0 &
+             !is.na(x$last_new_job)   & x$last_new_job != "never")) {
+    n_err <- n_err + 1   # Error 1
+  }
+  
+  if (isTrue(!is.na(x$experience_num) & x$experience_num > 0 &
+             !is.na(x$last_new_job)   & x$last_new_job == "never")) {
+    n_err <- n_err + 1   # Error 2
+  }
+  
+  # Error 3: last_new_job > experience_num (conversión segura a num)
+  if ( "last_new_job" %in% names(x) ) {
+    lj_num <- suppressWarnings(as.numeric(as.character(x$last_new_job)))
+    if (isTrue(!is.na(lj_num) & !is.na(x$experience_num) &
+               lj_num > x$experience_num)) {
+      n_err <- n_err + 1
+    }
+  }
+  
+  ## ----------------------------
+  ## EXPERIENCE vs COMPANY_SIZE / TYPE
+  ## ----------------------------
+  if (isTrue(!is.na(x$experience_num) & x$experience_num == 0 &
+             !is.na(x$company_size))) {
+    n_err <- n_err + 1   # Error 4
+  }
+  
+  if (isTrue(!is.na(x$experience_num) & x$experience_num == 0 &
+             !is.na(x$company_type))) {
+    n_err <- n_err + 1   # Error 5
+  }
+  
+  if (isTrue( (is.na(x$company_size)  & !is.na(x$company_type)) |
+              (!is.na(x$company_size) &  is.na(x$company_type)) )) {
+    n_err <- n_err + 1   # Error 6
+  }
+  
+  ## ----------------------------
+  ## EDUCATION / UNIVERSITY / MAJOR
+  ## ----------------------------
+  if (isTrue(x$education_level == "Primary School" & !is.na(x$major_discipline))) {
+    n_err <- n_err + 1   # Error 7
+  }
+  
+  if (isTrue(x$education_level == "High School" & !is.na(x$major_discipline))) {
+    n_err <- n_err + 1   # Error 8
+  }
+  
+  if (isTrue(!is.na(x$major_discipline) &
+             (x$education_level %in% c("Primary School", "High School") |
+              is.na(x$education_level)))) {
+    n_err <- n_err + 1   # Error 9
+  }
+  
+  if (isTrue(x$education_level == "Primary School" &
+             !is.na(x$enrolled_university) &
+             x$enrolled_university != "no_enrollment")) {
+    n_err <- n_err + 1   # Error 10
+  }
+  
+  ## ----------------------------
+  ## RELEVANT EXPERIENCE
+  ## ----------------------------
+  if (isTrue(x$relevant_experience == "Has relevant experience" &
+             !is.na(x$experience_num) & x$experience_num == 0)) {
+    n_err <- n_err + 1   # Error 11
+  }
+  
+  if (isTrue(x$relevant_experience == "No relevant experience" &
+             !is.na(x$experience_num) & x$experience_num > 10)) {
+    n_err <- n_err + 1   # Error 12
+  }
+  
+  return(n_err)
+}
+
 
 # -------------------------------
 # Outliers
@@ -372,20 +578,19 @@ vars <- names(df)
 
 DQ_variable <- data.frame(
   missing = sapply(df, count_missing),
-  errors = sapply(df, count_errors),
+  errors = count_errors(df),
   outliers = sapply(df, count_outliers),
   severe_outliers = sapply(df, count_outliers_severe)
 )
 summary(DQ_variable)
 
 
-# Data quality per individual
 DQ_individual <- data.frame(
   missing         = apply(df, 1, count_missing),
-  errors          = apply(df, 1, count_errors),
-  outliers        = apply(df, 1, count_outliers),
-  severe_outliers = apply(df, 1, count_outliers_severe)
+  errors          = sapply(seq_len(nrow(df)),
+                           function(i) count_errors_row(df[i, , drop = FALSE]))
 )
+
 summary(DQ_individual)
 
 ```

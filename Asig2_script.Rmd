@@ -609,17 +609,32 @@ summary(DQ_individual)
 
 
 
-
-
-
-
-
-
-
 ## Imputation
+
+Imputamos el valor 'Unknown' a las variables con NA referido a que el preguntado NO sabe la respuesta, y NO podemos imputar un valor usando MICE.
+
+-> si una observación tiene 5 o más NAs en estas 8 columnas → se elimina.
+
 ```{r}
 
+cols_unknown <- c(
+  "gender", "enrolled_university", "education_level", "major_discipline",
+  "experience", "company_size", "company_type", "last_new_job"
+)
 
+df$na_count <- rowSums(is.na(df[cols_unknown]))
+df <- df[df$na_count <= 4, ]
+df$na_count <- NULL
+
+df[cols_unknown] <- lapply(df[cols_unknown], function(x) {
+  x <- as.character(x)        
+  x[is.na(x)] <- "Unknown"
+  x <- factor(x)            
+  return(x)
+})
+
+summary(df[1:13])
+nrow(df_orig) - nrow(df)
 
 ```
 
